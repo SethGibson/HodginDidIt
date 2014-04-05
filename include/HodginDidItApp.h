@@ -5,6 +5,7 @@
 #include "cinder/gl/gl.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/gl/TextureFont.h"
+#include "pointcloudUtils.h"
 #include "util_pipeline.h"
 
 using namespace ci;
@@ -17,7 +18,6 @@ public:
 	void prepareSettings(Settings *pSettings);
 	void update();
 	void draw();
-	void keyDown(KeyEvent pEvent);
 
 private:
 	void setupCiCamera();
@@ -25,6 +25,9 @@ private:
 	void setupGraphics();
 
 	//update and draw methods
+	//Global
+	void updateCamera();
+
 	//Stage 1 - Hello. Are You There?
 	void updateStrings(); 
 	void drawStrings();
@@ -36,7 +39,12 @@ private:
 	//Stage 3 - Reach In
 	void updateWorld(); //stage 3
 	void drawWorld(); //stage 3
-	
+
+	//Global
+	int mStage;
+	UtilPipeline mPXC;
+	pxcU32 mRgbW, mRgbH, mDepthW, mDepthH;
+
 	//Stage 1 
 	gl::Texture mTexRgb;
 	gl::TextureFontRef mFont;
@@ -55,9 +63,6 @@ private:
 	Matrix44f mMatrixMV;
 	Matrix44f mMatrixProj;
 	Area mAreaView;
-
-	UtilPipeline mPXC;
-	pxcU32 mRgbW, mRgbH, mDepthW, mDepthH;
 };
 
 #endif __HODGINDIDIT_H__

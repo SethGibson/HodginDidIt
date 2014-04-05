@@ -1,11 +1,11 @@
 #include "HodginDidItApp.h"
 
-const int S_HELLO_START = 0;
-const int S_ASK_START = 90;
-const int S_FADE_START = 120;
+const int S_HELLO_START = 90;
+const int S_ASK_START = 180;
+const int S_FADE_START = 270;
+
 const int S_FADETIME = 180;
 const float S_BLEND_MAX = 1.0f;
-
 
 void HodginDidItApp::prepareSettings(Settings *pSettings)
 {
@@ -22,17 +22,64 @@ void HodginDidItApp::setup()
 
 void HodginDidItApp::update()
 {
+	int cTime = getElapsedFrames();
+	if(cTime>S_HELLO_START&&cTime<S_FADE_START)
+		mStage = 1;
+
+	if(cTime>S_FADE_START&&cTime<S_FADE_START+S_FADETIME)
+		mStage = 2;
+
+	else
+		mStage = 3;
+
 	if(mPXC.AcquireFrame(true))
 	{
-		updateFeeds();
+		updateCamera();
 		mPXC.ReleaseFrame();
+	}
+
+	switch(mStage)
+	{
+		case 1:
+		{
+			updateStrings();
+			break;
+		}
+		case 2:
+		{
+			updateFeeds();
+			break;
+		}
+		case 3:
+		{
+			updateWorld();
+			break;
+		}
 	}
 }
 
 void HodginDidItApp::draw()
 {
 	gl::clear( Color( 0, 0, 0 ) ); 
-	drawFeeds();
+
+	switch(mStage)
+	{
+		case 1:
+		{
+			drawStrings();
+			break;
+		}
+		case 2:
+		{
+			drawFeeds();
+			break;
+		}
+		case 3:
+		{
+			drawWorld();
+			break;
+		}
+	}
 }
 
 void HodginDidItApp::setupCiCamera()
@@ -44,11 +91,6 @@ void HodginDidItApp::setupCiCamera()
 	mMatrixMV = mCamera.getModelViewMatrix();
 	mMatrixProj = mCamera.getProjectionMatrix();
 	mAreaView = gl::getViewport();
-}
-
-void HodginDidItApp::keyDown(KeyEvent pEvent)
-{
-	float mBlendAmt = S_BLEND_MAX;
 }
 
 void HodginDidItApp::setupIO()
@@ -75,7 +117,8 @@ void HodginDidItApp::setupGraphics()
 	mCursor = '_';
 }
 
-void HodginDidItApp::updateFeeds()
+//global
+void HodginDidItApp::updateCamera()
 {
 	PXCImage *rgb = mPXC.QueryImage(PXCImage::IMAGE_TYPE_COLOR);
 	PXCImage::ImageData rgbData;
@@ -83,29 +126,51 @@ void HodginDidItApp::updateFeeds()
 	{
 		mTexRgb = gl::Texture(rgbData.planes[0], GL_BGR, mRgbW, mRgbH);
 		mSurfRgb = Surface8u(mTexRgb);
-		mChanBW = Channel(mSurfRgb);
 		rgb->ReleaseAccess(&rgbData);
-
-		if(mTime<180)
-			mBlendAmt = 1.0f-((getElapsedFrames()%S_FADETIME)/(float)S_FADETIME);
-		else
-			mBlendAmt = 0;
 	}
+}
+
+//Stage 1
+void HodginDidItApp::updateStrings()
+{
+}
+
+void HodginDidItApp::drawStrings()
+{
+	while(1)
+	{
+	}
+}
+
+//Stage 2
+void HodginDidItApp::updateFeeds()
+{
+	mChanBW = Channel(mSurfRgb);
+	if(getElapsedFrames()<S_FADE_START+S_FADETIME)
+		mBlendAmt = 1.0f-((getElapsedFrames()%S_FADE_START)/(float)S_FADETIME);
+	else
+		mBlendAmt = 0;
 }
 
 void HodginDidItApp::drawFeeds()
 {
 	gl::draw(mTexRgb, Vec2f::zero());
-	if(getElapsedFrames()<180)
+	if(mBlendAmt>0)
 	{
-		if(mBlendAmt>0)
-		{
-			gl::enableAlphaBlending();
-			gl::color(ColorA(1,1,1,mBlendAmt));
-			gl::draw(gl::Texture(mChanBW), Vec2f::zero());
-			gl::disableAlphaBlending();
-		}
+		gl::enableAlphaBlending();
+		gl::color(ColorA(1,1,1,mBlendAmt));
+		gl::draw(gl::Texture(mChanBW), Vec2f::zero());
+		gl::disableAlphaBlending();
 	}
+}
+
+//Stage 3
+void HodginDidItApp::updateWorld()
+{
+}
+
+void HodginDidItApp::drawWorld()
+{
 }
 
 CINDER_APP_NATIVE( HodginDidItApp, RendererGl )
