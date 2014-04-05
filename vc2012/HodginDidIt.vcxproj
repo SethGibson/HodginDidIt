@@ -106,7 +106,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\include;$(CINDER_DEV)\include;$(CINDER_DEV)\boost;$(PCSDK_DIR)\include;$(PCSDK_DIR)\sample\common\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\include;$(CINDER_DEV)\include;$(CINDER_DEV)\boost;$(PCSDK_DIR)\include;$(PCSDK_DIR)\sample\common\include;$(CINDER_DEV)\blocks\Cinder-OpenCV\include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;NOMINMAX;_WIN32_WINNT=0x0502;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -120,8 +120,8 @@
       <AdditionalIncludeDirectories>"..\..\..\lib\Cinder\include";..\include</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>cinder-$(PlatformToolset)_d.lib;libpxc_d.lib;libpxcutils_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(CINDER_DEV)\lib\msw\$(PlatformTarget);$(PCSDK_DIR)\lib\$(PlatformTarget);$(PCSDK_DIR)\sample\common\lib\$(PlatformTarget)\$(PlatformToolset)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>cinder-$(PlatformToolset)_d.lib;libpxc_d.lib;libpxcutils_d.lib;IlmImfd.lib;libjasperd.lib;libjpegd.lib;libpngd.lib;libtiffd.lib;opencv_calib3d248d.lib;opencv_contrib248d.lib;opencv_core248d.lib;opencv_features2d248d.lib;opencv_flann248d.lib;opencv_gpu248d.lib;opencv_highgui248d.lib;opencv_imgproc248d.lib;opencv_legacy248d.lib;opencv_ml248d.lib;opencv_nonfree248d.lib;opencv_objdetect248d.lib;opencv_ocl248d.lib;opencv_photo248d.lib;opencv_stitching248d.lib;opencv_superres248d.lib;opencv_ts248d.lib;opencv_video248d.lib;opencv_videostab248d.lib;zlibd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(CINDER_DEV)\lib\msw\$(PlatformTarget);$(PCSDK_DIR)\lib\$(PlatformTarget);$(PCSDK_DIR)\sample\common\lib\$(PlatformTarget)\$(PlatformToolset);$(CINDER_DEV)\blocks\Cinder-OpenCV\lib\v248\$(PlatformTarget)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
@@ -161,7 +161,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\include;$(CINDER_DEV)\include;$(CINDER_DEV)\boost;$(PCSDK_DIR)\include;$(PCSDK_DIR)\sample\common\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\include;$(CINDER_DEV)\include;$(CINDER_DEV)\boost;$(PCSDK_DIR)\include;$(PCSDK_DIR)\sample\common\include;$(CINDER_DEV)\blocks\Cinder-OpenCV\include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;NOMINMAX;_WIN32_WINNT=0x0502;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>
@@ -178,7 +178,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalDependencies>cinder-$(PlatformToolset).lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(CINDER_DEV)\lib\msw\$(PlatformTarget);$(PCSDK_DIR)\lib\$(PlatformTarget);$(PCSDK_DIR)\sample\common\lib\$(PlatformTarget)\$(PlatformToolset)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CINDER_DEV)\lib\msw\$(PlatformTarget);$(PCSDK_DIR)\lib\$(PlatformTarget);$(PCSDK_DIR)\sample\common\lib\$(PlatformTarget)\$(PlatformToolset);$(CINDER_DEV)\blocks\Cinder-OpenCV\lib\v248\$(PlatformTarget)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
       <SubSystem>Windows</SubSystem>
