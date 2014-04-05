@@ -41,7 +41,7 @@ private:
 	void drawWorld(); //stage 3
 
 	//Global
-	int mStage;
+	int mStage, mDebugTime;
 	UtilPipeline mPXC;
 	pxcU32 mRgbW, mRgbH, mDepthW, mDepthH;
 
@@ -50,7 +50,8 @@ private:
 	gl::TextureFontRef mFont;
 	string mHello;
 	string mQuestion;
-	char mCursor;
+	string mScreenText;
+	string mCursor;
 
 	//Stage 2
 	float mBlendAmt;

@@ -23,15 +23,18 @@ void HodginDidItApp::setup()
 void HodginDidItApp::update()
 {
 	int cTime = getElapsedFrames();
-	if(cTime>S_HELLO_START&&cTime<S_FADE_START)
+	if(cTime < S_HELLO_START)
+		mStage = 0;
+	else if(cTime>S_HELLO_START&&cTime<S_ASK_START)
 		mStage = 1;
-
-	if(cTime>S_FADE_START&&cTime<S_FADE_START+S_FADETIME)
+	else if(cTime>=S_ASK_START&&cTime<S_FADE_START)
 		mStage = 2;
-
-	else
+	/*
+	else if(cTime>S_FADE_START&&cTime<S_FADE_START+S_FADETIME)
 		mStage = 3;
-
+	else
+		mStage = 4;
+		*/
 	if(mPXC.AcquireFrame(true))
 	{
 		updateCamera();
@@ -41,16 +44,17 @@ void HodginDidItApp::update()
 	switch(mStage)
 	{
 		case 1:
+		case 2:
 		{
 			updateStrings();
 			break;
 		}
-		case 2:
+		case 3:
 		{
 			updateFeeds();
 			break;
 		}
-		case 3:
+		case 4:
 		{
 			updateWorld();
 			break;
@@ -65,16 +69,17 @@ void HodginDidItApp::draw()
 	switch(mStage)
 	{
 		case 1:
+		case 2:
 		{
 			drawStrings();
 			break;
 		}
-		case 2:
+		case 3:
 		{
 			drawFeeds();
 			break;
 		}
-		case 3:
+		case 4:
 		{
 			drawWorld();
 			break;
@@ -115,6 +120,7 @@ void HodginDidItApp::setupGraphics()
 	mHello = "Hello.";
 	mQuestion = "Are You There?";
 	mCursor = '_';
+	mScreenText.clear();
 }
 
 //global
@@ -133,13 +139,36 @@ void HodginDidItApp::updateCamera()
 //Stage 1
 void HodginDidItApp::updateStrings()
 {
+	int cTime = getElapsedFrames();
+	if(cTime==0||cTime==S_ASK_START)
+		mScreenText="";
+	if(mStage==1)
+	{
+		if(getElapsedFrames()%2==0)
+		{
+			if(mScreenText.size()<mHello.size())
+				mScreenText+=mHello[mScreenText.size()];
+		}
+	}
+	else if(mStage==2)
+	{
+		if(getElapsedFrames()%2==0)
+		{
+			if(mScreenText.size()<mQuestion.size())
+				mScreenText+=mQuestion[mScreenText.size()];
+		}
+	}
 }
 
 void HodginDidItApp::drawStrings()
 {
-	while(1)
-	{
-	}
+	Vec2f cOffset = mFont->measureString(mScreenText);
+	Vec2f cCursorPos = mFont->measureString(mCursor);
+	Rectf cFit = Rectf(320-(cOffset.x*0.5f),240-(cOffset.y*0.5f),320+(cOffset.x*0.5f),240+(cOffset.y*0.5f));
+	Rectf cCursorRect = Rectf(cFit.x2,cFit.y1,cFit.x2+cCursorPos.x,cFit.y1+cCursorPos.y);
+	mFont->drawString(mScreenText, cFit);
+	if(getElapsedFrames()%10<5)
+		mFont->drawString(mCursor, cCursorRect);
 }
 
 //Stage 2
