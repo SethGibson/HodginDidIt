@@ -17,6 +17,7 @@ public:
 	void draw();
 
 private:
+	void getDepthSurface();
 	Vec3f phUnproject(const Matrix44f pModelView, const Matrix44f pProjection, const Area pViewport, const Vec3f pPt);
 	Vec3f phDepthToWorld(const Vec3f pPt, const Area pViewport);
 	Vec3f niDepthToWorld(const Vec3f pPt, const Vec2f pFactors, const Vec2f pImageRes);
@@ -26,7 +27,12 @@ private:
 	Matrix44f mProjM;
 	Area mViewport;
 
+	Surface8u mSurfDepth;
+	Surface8u mSurfRgb;
+	gl::Texture mTexRgb;
+
 	UtilPipeline mPXC;
+	pxcU32 mRgbW, mRgbH, mDepthW, mDepthH;
 };
 
 void HodginDidItApp::prepareSettings(Settings *pSettings)
@@ -44,25 +50,54 @@ void HodginDidItApp::setup()
 	mMvM = mCamera.getModelViewMatrix();
 	mProjM = mCamera.getProjectionMatrix();
 	mViewport = gl::getViewport();
-
+		
 	mPXC.EnableGesture();
-	mPXC.EnableImage(PXCImage::COLOR_FORMAT_RGB32);
+	mPXC.EnableImage(PXCImage::COLOR_FORMAT_RGB24);
 	mPXC.EnableImage(PXCImage::COLOR_FORMAT_DEPTH);
 	mPXC.EnableImage(PXCImage::COLOR_FORMAT_VERTICES);
 	mPXC.Init();
+
+	mPXC.QueryImageSize(PXCImage::IMAGE_TYPE_COLOR, mRgbW, mRgbH);
+	mPXC.QueryImageSize(PXCImage::IMAGE_TYPE_DEPTH, mDepthW, mDepthH);
+
+	mSurfRgb = Surface8u(mRgbW, mRgbH, false, SurfaceChannelOrder::BGR);
+	mSurfDepth = Surface8u(mDepthW, mDepthH, false, SurfaceChannelOrder::RGB);
 }
 
 void HodginDidItApp::update()
 {
-
+	if(mPXC.AcquireFrame(true))
+	{
+		PXCImage *rgb = mPXC.QueryImage(PXCImage::IMAGE_TYPE_COLOR);
+		PXCImage::ImageData rgbData;
+		if(rgb->AcquireAccess(PXCImage::ACCESS_READ, &rgbData)>=PXC_STATUS_NO_ERROR)
+		{
+			mTexRgb = gl::Texture(rgbData.planes[0], GL_BGR, mRgbW, mRgbH);
+			mSurfRgb = Surface8u(mTexRgb);
+			rgb->ReleaseAccess(&rgbData);
+		}
+		mPXC.ReleaseFrame();
+	}
 }
 
 void HodginDidItApp::draw()
 {
 	gl::clear( Color( 0, 0, 0 ) ); 
-	gl::setMatrices( mCamera );
-	gl::drawCube(Vec3f(0,0,10), Vec3f(10,10,10));
+	gl::disableDepthRead();
+	gl::draw(gl::Texture(mSurfRgb), Vec2f::zero());
 
+}
+
+void HodginDidItApp::getDepthSurface()
+{
+	Surface::ConstIter dit = mSurfDepth.getIter(Area(0,0,mDepthW,mDepthH));
+	while(dit.line())
+	{
+		while(dit.pixel())
+		{
+
+		}
+	}
 }
 
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -110,6 +145,7 @@ Vec3f HodginDidItApp::niDepthToWorld(const Vec3f pPt, const Vec2f pFactors, cons
 
 	return Vec3f(cWorld.x, cWorld.y, pPt.z);
 }
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 CINDER_APP_NATIVE( HodginDidItApp, RendererGl )
 
