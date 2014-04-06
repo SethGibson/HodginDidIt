@@ -194,10 +194,12 @@
     <ResourceCompile Include="Resources.rc" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\src\HdiVeil.cpp" />
     <ClCompile Include="..\src\HodginDidItApp.cpp" />
     <ClCompile Include="..\src\pointcloudUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\include\HdiVeil.h" />
     <ClInclude Include="..\include\HodginDidItApp.h" />
     <ClInclude Include="..\include\pointcloudUtils.h" />
     <ClInclude Include="..\include\Resources.h" />
