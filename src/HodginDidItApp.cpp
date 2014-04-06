@@ -1,10 +1,12 @@
 #include "HodginDidItApp.h"
 
 const int S_HELLO_START = 90;
-const int S_ASK_START = 180;
-const int S_FADE_START = 270;
-
-const int S_FADETIME = 180;
+const int S_ASK_START = 210;
+const int S_BL_2_SEG = 330;
+const int S_SEG_2_BW = 420;
+const int S_BW_2_RGB = 510;
+const int S_WORLD_START = 630;
+const int S_FADE_TIME = 90;
 const float S_BLEND_MAX = 1.0f;
 
 void HodginDidItApp::prepareSettings(Settings *pSettings)
@@ -25,20 +27,26 @@ void HodginDidItApp::update()
 	int cTime = getElapsedFrames();
 	if(cTime < S_HELLO_START)
 		mStage = 0;
-	else if(cTime>S_HELLO_START&&cTime<S_ASK_START)
+	else if(cTime>=S_HELLO_START&&cTime<S_ASK_START)
 		mStage = 1;
-	else if(cTime>=S_ASK_START&&cTime<S_FADE_START)
+	else if(cTime>=S_ASK_START&&cTime<S_BL_2_SEG)
 		mStage = 2;
-	/*
-	else if(cTime>S_FADE_START&&cTime<S_FADE_START+S_FADETIME)
+	else if(cTime>=S_BL_2_SEG&&cTime<S_SEG_2_BW)
 		mStage = 3;
-	else
+	else if(cTime>=S_SEG_2_BW&&cTime<S_BW_2_RGB)
 		mStage = 4;
-		*/
-	if(mPXC.AcquireFrame(true))
+	else if(cTime>=S_BW_2_RGB&&cTime<S_WORLD_START)
+		mStage = 5;
+	else if(cTime>=S_WORLD_START)
+		mStage = 6;
+		
+	if(mStage>=3)
 	{
-		updateCamera();
-		mPXC.ReleaseFrame();
+		if(mPXC.AcquireFrame(true))
+		{
+			updateCamera();
+			mPXC.ReleaseFrame();
+		}
 	}
 
 	switch(mStage)
@@ -50,11 +58,13 @@ void HodginDidItApp::update()
 			break;
 		}
 		case 3:
+		case 4:
+		case 5:
 		{
-			updateFeeds();
+			updateBlend();
 			break;
 		}
-		case 4:
+		case 6:
 		{
 			updateWorld();
 			break;
@@ -75,11 +85,13 @@ void HodginDidItApp::draw()
 			break;
 		}
 		case 3:
+		case 4:
+		case 5:
 		{
-			drawFeeds();
+			drawBlend();
 			break;
 		}
-		case 4:
+		case 6:
 		{
 			drawWorld();
 			break;
@@ -100,10 +112,10 @@ void HodginDidItApp::setupCiCamera()
 
 void HodginDidItApp::setupIO()
 {
-	mPXC.EnableGesture();
 	mPXC.EnableImage(PXCImage::COLOR_FORMAT_RGB24);
 	mPXC.EnableImage(PXCImage::COLOR_FORMAT_DEPTH);
 	mPXC.EnableImage(PXCImage::COLOR_FORMAT_VERTICES);
+	mPXC.EnableSegmentation();
 	mPXC.Init();
 
 	mPXC.QueryImageSize(PXCImage::IMAGE_TYPE_COLOR, mRgbW, mRgbH);
@@ -126,17 +138,39 @@ void HodginDidItApp::setupGraphics()
 //global
 void HodginDidItApp::updateCamera()
 {
-	PXCImage *rgb = mPXC.QueryImage(PXCImage::IMAGE_TYPE_COLOR);
-	PXCImage::ImageData rgbData;
-	if(rgb->AcquireAccess(PXCImage::ACCESS_READ, &rgbData)>=PXC_STATUS_NO_ERROR)
+	mImgRgb = mPXC.QueryImage(PXCImage::IMAGE_TYPE_COLOR);
+	if(mImgRgb->AcquireAccess(PXCImage::ACCESS_READ, &mDataRgb)>=PXC_STATUS_NO_ERROR)
 	{
-		mTexRgb = gl::Texture(rgbData.planes[0], GL_BGR, mRgbW, mRgbH);
-		mSurfRgb = Surface8u(mTexRgb);
-		rgb->ReleaseAccess(&rgbData);
+		mTexRgb = gl::Texture(mDataRgb.planes[0],GL_BGR,mRgbW,mRgbH);
+		mChanBW = Channel(mTexRgb);
+		mImgRgb->ReleaseAccess(&mDataRgb);
+	}
+
+	if(mStage==3||mStage==4)	//BL_2_SEG
+	{
+		PXCImage *mImgSeg = mPXC.QuerySegmentationImage();
+		PXCImage::ImageData mDataSeg;
+		if(mImgSeg->AcquireAccess(PXCImage::ACCESS_READ, &mDataSeg)>=PXC_STATUS_NO_ERROR)
+		{
+			mTexSeg = gl::Texture(mDataSeg.planes[0],GL_LUMINANCE,mDepthW,mDepthH);
+			mImgSeg->ReleaseAccess(&mDataSeg);
+		}
+	}
+	else if(mStage==4||mStage==5)	//SEG_2_BW
+	{
+		// placeholder?
+	}
+	else if(mStage==5)	//BW_2_RGB
+	{
+		// placeholder?
+	}
+
+	else if(mStage==6)
+	{
 	}
 }
 
-//Stage 1
+//Stage 1,2
 void HodginDidItApp::updateStrings()
 {
 	int cTime = getElapsedFrames();
@@ -171,29 +205,79 @@ void HodginDidItApp::drawStrings()
 		mFont->drawString(mCursor, cCursorRect);
 }
 
-//Stage 2
-void HodginDidItApp::updateFeeds()
+//Stage 3,4,5
+void HodginDidItApp::updateBlend()
 {
-	mChanBW = Channel(mSurfRgb);
-	if(getElapsedFrames()<S_FADE_START+S_FADETIME)
-		mBlendAmt = 1.0f-((getElapsedFrames()%S_FADE_START)/(float)S_FADETIME);
-	else
-		mBlendAmt = 0;
-}
-
-void HodginDidItApp::drawFeeds()
-{
-	gl::draw(mTexRgb, Vec2f::zero());
-	if(mBlendAmt>0)
+	int cTime = getElapsedFrames();
+	if(cTime==S_BL_2_SEG||cTime==S_SEG_2_BW||cTime==S_BW_2_RGB)
 	{
-		gl::enableAlphaBlending();
-		gl::color(ColorA(1,1,1,mBlendAmt));
-		gl::draw(gl::Texture(mChanBW), Vec2f::zero());
-		gl::disableAlphaBlending();
+		mBlendCounter = 0;
+		mBlendAmt = 1.0f;
+		console() << "STAGE: " << mStage << endl;
 	}
+	int cTimeBase;
+	switch(mStage)
+	{
+		case 3:
+		{
+			cTimeBase = S_BL_2_SEG;
+			break;
+		}
+		case 4:
+		{
+			cTimeBase = S_SEG_2_BW;
+			break;
+		}
+		case 5:
+		{
+			cTimeBase = S_BW_2_RGB;
+			break;
+		}
+	}
+	cTimeBase = cTime-cTimeBase;
+	if(mStage<=5&&cTimeBase<90)
+		mBlendAmt = lerp<float>( 0.0f, 1.0f, (cTimeBase%S_FADE_TIME)/(float)S_FADE_TIME );
+	else
+		mBlendAmt = 1;
+	++mBlendCounter;
 }
 
-//Stage 3
+void HodginDidItApp::drawBlend()
+{
+	gl::clear(Color::black());
+	gl::enableAlphaBlending();
+	switch(mStage)
+	{
+		case 3:	//BL_2_SEG
+		{
+			gl::color(ColorA(1,1,1,mBlendAmt));
+			gl::draw(mTexSeg, Rectf(0,0,640,480));
+			break;
+		}
+		case 4:	//SEG_2_BW
+		{
+			gl::color(ColorA(1,1,1,1));
+			gl::draw(mTexSeg, Rectf(0,0,640,480));
+			gl::color(ColorA(1,1,1,mBlendAmt));
+			gl::draw(gl::Texture(mChanBW), Vec2f::zero());
+			break;
+		}
+		case 5:	//BW_2_RGB
+		{
+			if(mBlendAmt<1)
+			{
+				gl::color(ColorA(1,1,1,1));
+				gl::draw(gl::Texture(mChanBW), Vec2f::zero());
+				gl::color(ColorA(1,1,1,mBlendAmt));
+			}
+			gl::draw(mTexRgb, Rectf(0,0,640,480));
+			break;
+		}
+	}
+	gl::disableAlphaBlending();
+}
+
+//Stage 6
 void HodginDidItApp::updateWorld()
 {
 }

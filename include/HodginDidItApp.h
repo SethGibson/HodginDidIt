@@ -3,6 +3,7 @@
 #include "cinder/app/AppNative.h"
 #include "cinder/Camera.h"
 #include "cinder/gl/gl.h"
+#include "cinder/gl/GlslProg.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/gl/TextureFont.h"
 #include "pointcloudUtils.h"
@@ -28,38 +29,43 @@ private:
 	//Global
 	void updateCamera();
 
-	//Stage 1 - Hello. Are You There?
+	//Stage 1, 2 - Hello. Are You There?
 	void updateStrings(); 
 	void drawStrings();
 
-	//Stage 2 - I Can See You
-	void updateFeeds();	//Stage 2
-	void drawFeeds(); //drawcurrent state
+	//Stage 3 - I Can See You
+	void updateBlend();
+	void drawBlend();
 
-	//Stage 3 - Reach In
-	void updateWorld(); //stage 3
-	void drawWorld(); //stage 3
+	//Stage 4 - Reach In
+	void updateWorld();
+	void drawWorld();
 
 	//Global
-	int mStage, mDebugTime;
+	int mStage;
 	UtilPipeline mPXC;
 	pxcU32 mRgbW, mRgbH, mDepthW, mDepthH;
+	PXCImage *mImgRgb;
+	PXCImage::ImageData mDataRgb;
 
-	//Stage 1 
-	gl::Texture mTexRgb;
+	//Stage 1, 2
 	gl::TextureFontRef mFont;
 	string mHello;
 	string mQuestion;
 	string mScreenText;
 	string mCursor;
 
-	//Stage 2
+	//Stage 3,4,5
+	int mBlendCounter;
 	float mBlendAmt;
 	Surface8u mSurfDepth;
 	Surface8u mSurfRgb;
 	Channel mChanBW;
+	gl::Texture mTexRgb;
+	gl::Texture mTexSeg;
+	gl::GlslProg mShaderBlur;
 
-	//Stage 3
+	//Stage 6
 	CameraPersp mCamera;
 	Matrix44f mMatrixMV;
 	Matrix44f mMatrixProj;
