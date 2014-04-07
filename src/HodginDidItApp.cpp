@@ -66,7 +66,7 @@ void HodginDidItApp::update()
 		}
 		case 6:
 		{
-			updateWorld();
+			updateVeil();
 			break;
 		}
 	}
@@ -93,7 +93,7 @@ void HodginDidItApp::draw()
 		}
 		case 6:
 		{
-			drawWorld();
+			drawVeil();
 			break;
 		}
 	}
@@ -142,27 +142,27 @@ void HodginDidItApp::updateCamera()
 	if(mImgRgb->AcquireAccess(PXCImage::ACCESS_READ, &mDataRgb)>=PXC_STATUS_NO_ERROR)
 	{
 		mTexRgb = gl::Texture(mDataRgb.planes[0],GL_BGR,mRgbW,mRgbH);
-		mChanBW = Channel(mTexRgb);
 		mImgRgb->ReleaseAccess(&mDataRgb);
 	}
 
 	if(mStage==3||mStage==4)	//BL_2_SEG
 	{
-		PXCImage *mImgSeg = mPXC.QuerySegmentationImage();
-		PXCImage::ImageData mDataSeg;
-		if(mImgSeg->AcquireAccess(PXCImage::ACCESS_READ, &mDataSeg)>=PXC_STATUS_NO_ERROR)
+		PXCImage *cImgSeg = mPXC.QuerySegmentationImage();
+		PXCImage::ImageData cDataSeg;
+		if(cImgSeg->AcquireAccess(PXCImage::ACCESS_READ, &cDataSeg)>=PXC_STATUS_NO_ERROR)
 		{
-			mTexSeg = gl::Texture(mDataSeg.planes[0],GL_LUMINANCE,mDepthW,mDepthH);
-			mImgSeg->ReleaseAccess(&mDataSeg);
+			mTexSeg = gl::Texture(cDataSeg.planes[0],GL_LUMINANCE,mDepthW,mDepthH);
+			cImgSeg->ReleaseAccess(&cDataSeg);
 		}
+		mChanBW = Channel(mTexRgb);
 	}
 	else if(mStage==4||mStage==5)	//SEG_2_BW
 	{
-		// placeholder?
+		mChanBW = Channel(mTexRgb);
 	}
-	else if(mStage==5)	//BW_2_RGB
+	else if(mStage==5||mStage==6)	//BW_2_RGB
 	{
-		// placeholder?
+		//PXCImage *cImgDepth = mPXC.QueryImage(PXCImage::IMAGE_TYPE_DEPTH);
 	}
 
 	else if(mStage==6)
@@ -278,11 +278,11 @@ void HodginDidItApp::drawBlend()
 }
 
 //Stage 6
-void HodginDidItApp::updateWorld()
+void HodginDidItApp::updateVeil()
 {
 }
 
-void HodginDidItApp::drawWorld()
+void HodginDidItApp::drawVeil()
 {
 }
 

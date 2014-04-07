@@ -38,8 +38,8 @@ private:
 	void drawBlend();
 
 	//Stage 4 - Reach In
-	void updateWorld();
-	void drawWorld();
+	void updateVeil();
+	void drawVeil();
 
 	//Global
 	int mStage;

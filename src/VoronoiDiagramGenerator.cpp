@@ -1,36 +1,30 @@
 /*
-* The author of this software is Steven Fortune.  Copyright (c) 1994 by AT&T
-* Bell Laboratories.
-* Permission to use, copy, modify, and distribute this software for any
-* purpose without fee is hereby granted, provided that this entire notice
-* is included in all copies of any software which is or includes a copy
-* or modification of this software and in all copies of the supporting
-* documentation for such software.
-* THIS SOFTWARE IS BEING PROVIDED "AS IS", WITHOUT ANY EXPRESS OR IMPLIED
-* WARRANTY.  IN PARTICULAR, NEITHER THE AUTHORS NOR AT&T MAKE ANY
-* REPRESENTATION OR WARRANTY OF ANY KIND CONCERNING THE MERCHANTABILITY
-* OF THIS SOFTWARE OR ITS FITNESS FOR ANY PARTICULAR PURPOSE.
-*/
+MapManager library for the conversion, manipulation and analysis 
+of maps used in Mobile Robotics research.
+Copyright (C) 2005 Shane O'Sullivan
 
-/* 
-* This code was originally written by Stephan Fortune in C code.  I, Shane O'Sullivan, 
-* have since modified it, encapsulating it in a C++ class and, fixing memory leaks and 
-* adding accessors to the Voronoi Edges.
-* Permission to use, copy, modify, and distribute this software for any
-* purpose without fee is hereby granted, provided that this entire notice
-* is included in all copies of any software which is or includes a copy
-* or modification of this software and in all copies of the supporting
-* documentation for such software.
-* THIS SOFTWARE IS BEING PROVIDED "AS IS", WITHOUT ANY EXPRESS OR IMPLIED
-* WARRANTY.  IN PARTICULAR, NEITHER THE AUTHORS NOR AT&T MAKE ANY
-* REPRESENTATION OR WARRANTY OF ANY KIND CONCERNING THE MERCHANTABILITY
-* OF THIS SOFTWARE OR ITS FITNESS FOR ANY PARTICULAR PURPOSE.
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+email: shaneosullivan1@gmail.com
 */
 
 #include "VoronoiDiagramGenerator.h"
 
 VoronoiDiagramGenerator::VoronoiDiagramGenerator()
 {
+	//LOGGING_OFF
 	siteidx = 0;
 	sites = 0;
 
@@ -40,21 +34,69 @@ VoronoiDiagramGenerator::VoronoiDiagramGenerator()
 	currentMemoryBlock = allMemoryList;
 	allEdges = 0;
 	iteratorEdges = 0;
+	sites = 0;
+	ELhash = 0;
+	PQhash = 0;
+
 	minDistanceBetweenSites = 0;
+	
+	vertexLinks = 0;
+	vertices = 0;
+	finalVertexLinks =0;
+	finalVertices = 0;
+
+	setGenerateVoronoi(true);
+	setGenerateDelaunay(false);
+
+	delaunayEdges = 0;
+	iteratorDelaunayEdges = 0;
 }
 
 VoronoiDiagramGenerator::~VoronoiDiagramGenerator()
+{
+	reset();
+}
+
+void VoronoiDiagramGenerator::reset()
 {
 	cleanup();
 	cleanupEdges();
 
 	if(allMemoryList != 0)
 		delete allMemoryList;
+
+	if(finalVertices != 0)
+		free(finalVertices);
+
+	if(vertexLinks != 0)
+		free(vertexLinks);
+
+	if(vertices != 0)
+		free(vertices);
+
+	if(finalVertexLinks != 0)
+		free(finalVertexLinks);	
+
+	allMemoryList = 0;
+	finalVertices = 0;
+	vertexLinks = 0;
+	vertices = 0;
+	finalVertexLinks = 0;
+}
+
+void VoronoiDiagramGenerator::setGenerateDelaunay(bool genDel)
+{
+	genDelaunay = genDel;
 }
 
 
+void VoronoiDiagramGenerator::setGenerateVoronoi(bool genVor)
+{
+	genVoronoi= genVor;
+}
 
-bool VoronoiDiagramGenerator::generateVoronoi(float *xValues, float *yValues, int numPoints, float minX, float maxX, float minY, float maxY, float minDist)
+bool VoronoiDiagramGenerator::generateVoronoi(float *xValues, float *yValues,  int numPoints, float minX, 
+											  float maxX, float minY, float maxY, float minDist, bool genVertexInfo)
 {
 	cleanup();
 	cleanupEdges();
@@ -67,9 +109,34 @@ bool VoronoiDiagramGenerator::generateVoronoi(float *xValues, float *yValues, in
 	triangulate = 0;	
 	debug = 1;
 	sorted = 0; 
+	if(sites != 0)
+		free(sites);
+
 	freeinit(&sfl, sizeof (Site));
 		
 	sites = (struct Site *) myalloc(nsites*sizeof( *sites));
+
+	if(finalVertices != 0)
+		free(finalVertices);
+
+	if(vertexLinks != 0)
+		free(vertexLinks);
+
+	if(vertices != 0)
+		free(vertices);
+
+	if(finalVertexLinks != 0)
+		free(finalVertexLinks);
+
+	vertexLinks = 0;
+	vertices = 0;
+	finalVertexLinks =0;
+	finalVertices = 0;
+
+	sizeOfVertices = 0;
+	sizeOfVertexLinks = 0;
+	sizeOfFinalVertices = 0;
+	sizeOfFinalVertexLinks = 0;
 
 	if(sites == 0)
 		return false;
@@ -95,11 +162,9 @@ bool VoronoiDiagramGenerator::generateVoronoi(float *xValues, float *yValues, in
 			ymin = yValues[i];
 		else if(yValues[i] > ymax)
 			ymax = yValues[i];
-
-		//printf("\n%f %f\n",xValues[i],yValues[i]);
 	}
 	
-	qsort(sites, nsites, sizeof (*sites), scomp);
+	qsort(sites, nsites, sizeof (*sites), scomp); //undo
 	
 	siteidx = 0;
 	geominit();
@@ -122,7 +187,7 @@ bool VoronoiDiagramGenerator::generateVoronoi(float *xValues, float *yValues, in
 	borderMaxY = maxY;
 	
 	siteidx = 0;
-	voronoi(triangulate);
+	voronoi(genVertexInfo); //uncomment
 
 	return true;
 }
@@ -150,7 +215,6 @@ bool VoronoiDiagramGenerator::ELinitialize()
 	return true;
 }
 
-
 struct Halfedge* VoronoiDiagramGenerator::HEcreate(struct Edge *e,int pm)
 {
 	struct Halfedge *answer;
@@ -163,7 +227,6 @@ struct Halfedge* VoronoiDiagramGenerator::HEcreate(struct Edge *e,int pm)
 	return(answer);
 }
 
-
 void VoronoiDiagramGenerator::ELinsert(struct	Halfedge *lb, struct Halfedge *newHe)
 {
 	newHe -> ELleft = lb;
@@ -172,7 +235,6 @@ void VoronoiDiagramGenerator::ELinsert(struct	Halfedge *lb, struct Halfedge *new
 	lb -> ELright = newHe;
 }
 
-/* Get entry from hash table, pruning any deleted nodes */
 struct Halfedge * VoronoiDiagramGenerator::ELgethash(int b)
 {
 	struct Halfedge *he;
@@ -190,12 +252,11 @@ struct Halfedge * VoronoiDiagramGenerator::ELgethash(int b)
 	return ((struct Halfedge *) NULL);
 }	
 
-struct Halfedge * VoronoiDiagramGenerator::ELleftbnd(struct Point *p)
+struct Halfedge * VoronoiDiagramGenerator::ELleftbnd(struct PointVDG *p)
 {
 	int i, bucket;
 	struct Halfedge *he;
 	
-	/* Use hash table to get close to desired halfedge */
 	bucket = (int)((p->x - xmin)/deltax * ELhashsize);	//use the hash function to find the place in the hash map that this HalfEdge should be
 
 	if(bucket<0) bucket =0;					//make sure that the bucket position in within the range of the hash array
@@ -242,16 +303,12 @@ struct Halfedge * VoronoiDiagramGenerator::ELleftbnd(struct Point *p)
 	return (he);
 }
 
-
-/* This delete routine can't reclaim node, since pointers from hash
-table may be present.   */
 void VoronoiDiagramGenerator::ELdelete(struct Halfedge *he)
 {
 	(he -> ELleft) -> ELright = he -> ELright;
 	(he -> ELright) -> ELleft = he -> ELleft;
 	he -> ELedge = (struct Edge *)DELETED;
 }
-
 
 struct Halfedge * VoronoiDiagramGenerator::ELright(struct Halfedge *he)
 {
@@ -262,7 +319,6 @@ struct Halfedge * VoronoiDiagramGenerator::ELleft(struct Halfedge *he)
 {
 	return (he -> ELleft);
 }
-
 
 struct Site * VoronoiDiagramGenerator::leftreg(struct Halfedge *he)
 {
@@ -295,11 +351,11 @@ void VoronoiDiagramGenerator::geominit()
 }
 
 
-struct Edge * VoronoiDiagramGenerator::bisect(struct Site *s1,struct	Site *s2)
+struct Edge * VoronoiDiagramGenerator::bisect(struct Site *s1,struct Site *s2)
 {
 	float dx,dy,adx,ady;
-	struct Edge *newedge;	
-
+	struct Edge *newedge;
+	
 	newedge = (struct Edge *) getfree(&efl);
 	
 	newedge -> reg[0] = s1; //store the sites that this edge is bisecting
@@ -327,13 +383,12 @@ struct Edge * VoronoiDiagramGenerator::bisect(struct Site *s1,struct	Site *s2)
 	newedge -> edgenbr = nedges;
 
 	//printf("\nbisect(%d) ((%f,%f) and (%f,%f)",nedges,s1->coord.x,s1->coord.y,s2->coord.x,s2->coord.y);
-	
+	out_bisector(newedge);
 	nedges += 1;
 	return(newedge);
 }
 
-//create a new site where the HalfEdges el1 and el2 intersect - note that the Point in the argument list is not used, don't know why it's there
-struct Site * VoronoiDiagramGenerator::intersect(struct Halfedge *el1, struct Halfedge *el2, struct Point *p)
+struct Site * VoronoiDiagramGenerator::intersect(struct Halfedge *el1, struct Halfedge *el2, struct PointVDG *p)
 {
 	struct	Edge *e1,*e2, *e;
 	struct  Halfedge *el;
@@ -383,7 +438,7 @@ struct Site * VoronoiDiagramGenerator::intersect(struct Halfedge *el1, struct Ha
 }
 
 /* returns 1 if p is to right of halfedge e */
-int VoronoiDiagramGenerator::right_of(struct Halfedge *el,struct Point *p)
+int VoronoiDiagramGenerator::right_of(struct Halfedge *el,struct PointVDG *p)
 {
 	struct Edge *e;
 	struct Site *topsite;
@@ -426,7 +481,6 @@ int VoronoiDiagramGenerator::right_of(struct Halfedge *el,struct Point *p)
 	return (el->ELpm==le ? above : !above);
 }
 
-
 void VoronoiDiagramGenerator::endpoint(struct Edge *e,int lr,struct Site * s)
 {
 	e -> ep[lr] = s;
@@ -441,7 +495,6 @@ void VoronoiDiagramGenerator::endpoint(struct Edge *e,int lr,struct Site * s)
 	makefree((Freenode*)e, &efl);
 }
 
-
 float VoronoiDiagramGenerator::dist(struct Site *s,struct Site *t)
 {
 	float dx,dy;
@@ -450,10 +503,10 @@ float VoronoiDiagramGenerator::dist(struct Site *s,struct Site *t)
 	return (float)(sqrt(dx*dx + dy*dy));
 }
 
-
 void VoronoiDiagramGenerator::makevertex(struct Site *v)
 {
 	v -> sitenbr = nvertices;
+	insertVertexAddress(nvertices,v);
 	nvertices += 1;
 	out_vertex(v);
 }
@@ -469,6 +522,7 @@ void VoronoiDiagramGenerator::deref(struct Site *v)
 void VoronoiDiagramGenerator::ref(struct Site *v)
 {
 	v -> refcnt += 1;
+	v -> overallRefcnt += 1;
 }
 
 //push the HalfEdge into the ordered linked list of vertices
@@ -528,9 +582,9 @@ int VoronoiDiagramGenerator::PQempty()
 }
 
 
-struct Point VoronoiDiagramGenerator::PQ_min()
+struct PointVDG VoronoiDiagramGenerator::PQ_min()
 {
-	struct Point answer;
+	struct PointVDG answer;
 	
 	while(PQhash[PQmin].PQnext == (struct Halfedge *)NULL) {PQmin += 1;};
 	answer.x = PQhash[PQmin].PQnext -> vertex -> coord.x;
@@ -618,14 +672,18 @@ void VoronoiDiagramGenerator::cleanup()
 
 	current = prev = allMemoryList;
 
-	while(current->next != 0)
+	if(current != 0)
 	{
-		prev = current;
-		current = current->next;
-		free(prev->memory);
-		delete prev;
-		prev = 0;
+		while(current->next != 0)
+		{
+			prev = current;
+			current = current->next;
+			free(prev->memory);
+			delete prev;
+			prev = 0;
+		}
 	}
+	allMemoryList = 0;
 
 	if(current != 0 && current->memory != 0)
 	{
@@ -637,6 +695,18 @@ void VoronoiDiagramGenerator::cleanup()
 	allMemoryList->next = 0;
 	allMemoryList->memory = 0;
 	currentMemoryBlock = allMemoryList;
+
+	if(ELhash != 0)
+	{
+		free(ELhash);
+		ELhash = 0;
+	}
+
+	if(PQhash != 0)
+	{
+		free(PQhash);
+		PQhash = 0;
+	}
 }
 
 void VoronoiDiagramGenerator::cleanupEdges()
@@ -653,19 +723,48 @@ void VoronoiDiagramGenerator::cleanupEdges()
 
 	allEdges = 0;
 
+	geCurrent = gePrev = delaunayEdges;
+
+	while(geCurrent != 0 && geCurrent->next != 0)
+	{
+		gePrev = geCurrent;
+		geCurrent = geCurrent->next;
+		delete gePrev;
+	}
+
+	delaunayEdges = 0;
 }
 
 void VoronoiDiagramGenerator::pushGraphEdge(float x1, float y1, float x2, float y2)
 {
+	if(genVoronoi)
+	{
+		//LOG<<"Graph edge pushed";
+		GraphEdge* newEdge = new GraphEdge;
+		newEdge->next = allEdges;
+		allEdges = newEdge;
+		newEdge->x1 = x1;
+		newEdge->y1 = y1;
+		newEdge->x2 = x2;
+		newEdge->y2 = y2;
+	}
+}
+
+void VoronoiDiagramGenerator::pushDelaunayGraphEdge(float x1, float y1, float x2, float y2)
+{
+	if(sqrt(((x2 - x1) * (x2 - x1)) + ((y2 - y1) * (y2 - y1))) < minDistanceBetweenSites)
+		return;
+
 	GraphEdge* newEdge = new GraphEdge;
-	newEdge->next = allEdges;
-	allEdges = newEdge;
+	newEdge->next = delaunayEdges;
+	delaunayEdges = newEdge;
 	newEdge->x1 = x1;
 	newEdge->y1 = y1;
 	newEdge->x2 = x2;
 	newEdge->y2 = y2;
-}
 
+	//LOG<<"Pushed Delaunay edge ("<<x1<<","<<y1<<") -> ("<<x2<<","<<y2<<"), now delaunayEdges = "<<delaunayEdges;
+}
 
 char * VoronoiDiagramGenerator::myalloc(unsigned n)
 {
@@ -691,34 +790,77 @@ void VoronoiDiagramGenerator::range(float minX, float minY, float maxX, float ma
 
 void VoronoiDiagramGenerator::out_bisector(struct Edge *e)
 {
-	
+	if(genDelaunay)
+	{
+		pushDelaunayGraphEdge(e->reg[0]->coord.x, e->reg[0]->coord.y, 
+		     e->reg[1]->coord.x, e->reg[1]->coord.y);
+	}
+	//if(triangulate & plot &!debug)
+	//	printf("li %g %g %g %g\n", e->reg[0]->coord.x, e->reg[0]->coord.y, 
+	//	     e->reg[1]->coord.x, e->reg[1]->coord.y);
 
+//	if(!triangulate & !plot &!debug)
+	//	printf("l %f %f %f", e->a, e->b, e->c);
+//	if(debug)
+	//	printf("line(%d) %gx + %gy=%g, bisecting %d %d\n", e->edgenbr,
+	//	e->a, e->b, e->c, e->reg[le]->sitenbr, e->reg[re]->sitenbr);
 }
 
 
 void VoronoiDiagramGenerator::out_ep(struct Edge *e)
 {
-	
+	//if(!triangulate & plot) 
+	//clip_line(e);
+	//if(!triangulate & !plot)
+	//{	
+		//printf("e %d", e->edgenbr);
+        	//printf(" %d ", e->ep[le] != (Site *)NULL ? e->ep[le]->sitenbr : -1) ;
+        	//printf("%d\n", e->ep[re] != (Site *)NULL ? e->ep[re]->sitenbr : -1) ;
+
+
+		//printf("\n");
+	//}
 	
 }
 
 void VoronoiDiagramGenerator::out_vertex(struct Site *v)
 {
-	
+	if(!triangulate & !plot &!debug)
+	{
+		//printf ("v %f %f\n", v->coord.x, v->coord.y);
+	}
+	if(debug)
+	{
+		//printf("vertex(%d) at %f %f\n", v->sitenbr, v->coord.x, v->coord.y);
+	}
 }
 
 
 void VoronoiDiagramGenerator::out_site(struct Site *s)
-{
+{/*
 	if(!triangulate & plot & !debug)
 		circle (s->coord.x, s->coord.y, cradius);
-	
+	if(!triangulate & !plot & !debug)
+	{
+		//printf("s %f %f\n", s->coord.x, s->coord.y);
+	}
+	if(debug)
+	{
+		//printf("site (%d) at %f %f\n", s->sitenbr, s->coord.x, s->coord.y);
+	}*/
 }
 
 
 void VoronoiDiagramGenerator::out_triple(struct Site *s1, struct Site *s2,struct Site * s3)
 {
-	
+	//if(triangulate & !plot &!debug)
+	//{
+		//printf("%d %d %d\n", s1->sitenbr, s2->sitenbr, s3->sitenbr);
+//	}
+	//if(debug)
+	//{
+	//printf("circle through left=%d right=%d bottom=%d\n", s1->sitenbr, s2->sitenbr, s3->sitenbr);
+	//}
 }
 
 
@@ -737,13 +879,16 @@ void VoronoiDiagramGenerator::plotinit()
 	cradius = (float)((pxmax - pxmin)/350.0);
 	openpl();
 	range(pxmin, pymin, pxmax, pymax);
-}
 
+//	printf("pxmin = %f, pxmax = %f, pymin = %f, pymax = %f\n",pxmin,pxmax,pymin,pymax);
+}
 
 void VoronoiDiagramGenerator::clip_line(struct Edge *e)
 {
 	struct Site *s1, *s2;
-	float x1=0,x2=0,y1=0,y2=0, temp = 0;;
+	float x1=0,x2=0,y1=0,y2=0, temp = 0;
+	Site *v1= 0, *v2 = 0;
+	bool needNewVertex1 = false,needNewVertex2 = false;
 
 	x1 = e->reg[0]->coord.x;
 	x2 = e->reg[1]->coord.x;
@@ -761,6 +906,8 @@ void VoronoiDiagramGenerator::clip_line(struct Edge *e)
 	pymin = borderMinY;
 	pymax = borderMaxY;
 
+//	printf("\nEdge (%d), minX = %f, maxX = %f, minY = %f, maxY = %f",e->edgenbr,pxmin, pxmax, pymin,pymax);
+	
 	if(e -> a == 1.0 && e ->b >= 0.0)
 	{	
 		s1 = e -> ep[1];
@@ -771,6 +918,9 @@ void VoronoiDiagramGenerator::clip_line(struct Edge *e)
 		s1 = e -> ep[0];
 		s2 = e -> ep[1];
 	};
+
+	v1 = s1; 
+	v2 = s2;
 	
 	if(e -> a == 1.0)
 	{
@@ -779,106 +929,158 @@ void VoronoiDiagramGenerator::clip_line(struct Edge *e)
 		{
 			y1 = s1->coord.y;
 		}
+		else
+		{
+			needNewVertex1 = true;
+		}
+
 		if(y1>pymax) 
 		{
-		//	printf("\nClipped (1) y1 = %f to %f",y1,pymax);
 			y1 = pymax;
-			//return;
+			needNewVertex1 = true;
 		}
+
 		x1 = e -> c - e -> b * y1;
 		y2 = pymax;
 		if (s2!=(struct Site *)NULL && s2->coord.y < pymax) 
+		{
 			y2 = s2->coord.y;
+		}
+		else
+		{
+			needNewVertex2 = true;
+		}
+
 
 		if(y2<pymin) 
 		{
-			//printf("\nClipped (2) y2 = %f to %f",y2,pymin);
 			y2 = pymin;
-			//return;
+			needNewVertex2 = true;
 		}
+
 		x2 = (e->c) - (e->b) * y2;
 		if (((x1> pxmax) & (x2>pxmax)) | ((x1<pxmin)&(x2<pxmin))) 
 		{
-			//printf("\nClipLine jumping out(3), x1 = %f, pxmin = %f, pxmax = %f",x1,pxmin,pxmax);
 			return;
 		}
 		if(x1> pxmax)
-		{	x1 = pxmax; y1 = (e -> c - x1)/e -> b;};
+		{	x1 = pxmax; y1 = (e -> c - x1)/e -> b;needNewVertex1 = true;}
 		if(x1<pxmin)
-		{	x1 = pxmin; y1 = (e -> c - x1)/e -> b;};
+		{	x1 = pxmin; y1 = (e -> c - x1)/e -> b;needNewVertex1 = true;}
 		if(x2>pxmax)
-		{	x2 = pxmax; y2 = (e -> c - x2)/e -> b;};
+		{	x2 = pxmax; y2 = (e -> c - x2)/e -> b;needNewVertex2 = true;}
 		if(x2<pxmin)
-		{	x2 = pxmin; y2 = (e -> c - x2)/e -> b;};
+		{	x2 = pxmin; y2 = (e -> c - x2)/e -> b;needNewVertex2 = true;}
 	}
 	else
 	{
 		x1 = pxmin;
 		if (s1!=(struct Site *)NULL && s1->coord.x > pxmin) 
+		{
 			x1 = s1->coord.x;
+		}
+		else
+		{
+			needNewVertex1 = true;
+		}
+
 		if(x1>pxmax) 
 		{
-			//printf("\nClipped (3) x1 = %f to %f",x1,pxmin);
-			//return;
 			x1 = pxmax;
+			needNewVertex1 = true;
 		}
 		y1 = e -> c - e -> a * x1;
 		x2 = pxmax;
 		if (s2!=(struct Site *)NULL && s2->coord.x < pxmax) 
+		{
 			x2 = s2->coord.x;
+		}
+		else
+		{
+			needNewVertex2 = true;
+		}
+
 		if(x2<pxmin) 
 		{
-			//printf("\nClipped (4) x2 = %f to %f",x2,pxmin);
-			//return;
 			x2 = pxmin;
+			needNewVertex2 = true;
 		}
 		y2 = e -> c - e -> a * x2;
 		if (((y1> pymax) & (y2>pymax)) | ((y1<pymin)&(y2<pymin))) 
 		{
-			//printf("\nClipLine jumping out(6), y1 = %f, pymin = %f, pymax = %f",y2,pymin,pymax);
 			return;
 		}
 		if(y1> pymax)
-		{	y1 = pymax; x1 = (e -> c - y1)/e -> a;};
+		{	y1 = pymax; x1 = (e -> c - y1)/e -> a;needNewVertex1 = true;}
 		if(y1<pymin)
-		{	y1 = pymin; x1 = (e -> c - y1)/e -> a;};
+		{	y1 = pymin; x1 = (e -> c - y1)/e -> a;needNewVertex1 = true;}
 		if(y2>pymax)
-		{	y2 = pymax; x2 = (e -> c - y2)/e -> a;};
+		{	y2 = pymax; x2 = (e -> c - y2)/e -> a;needNewVertex2 = true;}
 		if(y2<pymin)
-		{	y2 = pymin; x2 = (e -> c - y2)/e -> a;};
-	};
+		{	y2 = pymin; x2 = (e -> c - y2)/e -> a;needNewVertex2 = true;}
+	}
+
+	
+	
 	
 	//printf("\nPushing line (%f,%f,%f,%f)",x1,y1,x2,y2);
-	line(x1,y1,x2,y2);
-}
+//	
+	if(!((x1 == x2 && x2== pxmin) || (x1 == x2 && x2 == pxmax) || 
+		(y1 == y2 && y2 == pymin) || (y1 == y2 && y2 == pymax)))
+	{
+		pushGraphEdge(x1,y1,x2,y2);
+		if(needNewVertex1)
+		{
+			//printf("\nCreate new vertex 1 
+			v1 = (struct Site *) getfree(&sfl);
+			v1 -> refcnt = 0;
+			v1 -> coord.x = x1;
+			v1 -> coord.y = y1;
+			makevertex(v1);
 
+		}
+
+		if(needNewVertex2)
+		{
+			v2 = (struct Site *) getfree(&sfl);
+			v2 -> refcnt = 0;
+			v2 -> coord.x = x2;
+			v2 -> coord.y = y2;
+			makevertex(v2);
+		}
+		insertVertexLink(v1->sitenbr,v2->sitenbr);
+	}
+
+	
+}
 
 /* implicit parameters: nsites, sqrt_nsites, xmin, xmax, ymin, ymax,
 deltax, deltay (can all be estimates).
 Performance suffers if they are wrong; better to make nsites,
 deltax, and deltay too big than too small.  (?) */
 
-bool VoronoiDiagramGenerator::voronoi(int triangulate)
+bool VoronoiDiagramGenerator::voronoi(bool genVertexInfo)
 {
 	struct Site *newsite, *bot, *top, *temp, *p;
 	struct Site *v;
-	struct Point newintstar;
+	struct PointVDG newintstar;
 	int pm;
 	struct Halfedge *lbnd, *rbnd, *llbnd, *rrbnd, *bisector;
 	struct Edge *e;
 	
 	PQinitialize();
 	bottomsite = nextone();
-	out_site(bottomsite);
 	bool retval = ELinitialize();
 
 	if(!retval)
 		return false;
 	
 	newsite = nextone();
+
+	long counter = 0;
 	while(1)
 	{
-
+		//LOG<<++counter;
 		if(!PQempty()) 
 			newintstar = PQ_min();
 		
@@ -888,11 +1090,12 @@ bool VoronoiDiagramGenerator::voronoi(int triangulate)
 		if (newsite != (struct Site *)NULL 	&& (PQempty() || newsite -> coord.y < newintstar.y
 			|| (newsite->coord.y == newintstar.y && newsite->coord.x < newintstar.x)))
 		{/* new site is smallest - this is a site event*/
-			out_site(newsite);						//output the site
+		//	out_site(newsite);						//output the site
 			lbnd = ELleftbnd(&(newsite->coord));				//get the first HalfEdge to the LEFT of the new site
 			rbnd = ELright(lbnd);						//get the first HalfEdge to the RIGHT of the new site
 			bot = rightreg(lbnd);						//if this halfedge has no edge, , bot = bottom site (whatever that is)
 			e = bisect(bot, newsite);					//create a new edge that bisects 
+						
 			bisector = HEcreate(e, le);					//create a new HalfEdge, setting its ELpm field to 0			
 			ELinsert(lbnd, bisector);					//insert this new bisector edge between the left and right vectors in a linked list	
 
@@ -908,8 +1111,9 @@ bool VoronoiDiagramGenerator::voronoi(int triangulate)
 			if ((p = intersect(bisector, rbnd)) != (struct Site *) NULL)	//if this new bisector intersects with the
 			{	
 				PQinsert(bisector, p, dist(p,newsite));			//push the HE into the ordered linked list of vertices
-			};
-			newsite = nextone();	
+			};					
+			
+			newsite = nextone();
 		}
 		else if (!PQempty()) /* intersection is smallest - this is a vector event */			
 		{	
@@ -973,16 +1177,385 @@ bool VoronoiDiagramGenerator::voronoi(int triangulate)
 		clip_line(e);
 	};
 
-	cleanup();
+	//count the total number of 
+	long i = 0;
 
-	return true;
+	if(genVertexInfo)
+	{
+		counter = 0;
+		sizeOfFinalVertices = 0;
+		for(i = 0; i < sizeOfVertexLinks; i++)
+		{
+			if(vertexLinks[i].count == 1 || vertexLinks[i].count == 3)
+			{
+				sizeOfFinalVertices++;
+			}
+		}
+
+		finalVertices = (PointVDG*)myalloc(sizeOfFinalVertices*sizeof(PointVDG));
+		counter = 0;
+		for(i = 0; i < sizeOfVertexLinks; i++)
+		{
+			if(vertexLinks[i].count == 1 || vertexLinks[i].count == 3 && vertices[i] != 0)
+			{
+				finalVertices[counter] = vertices[i]->coord;
+				counter++;
+			}
+		}
+
+		generateVertexLinks();
+	}
 	
+	cleanup();
+	return true;
 }
 
 
+void VoronoiDiagramGenerator::insertVertexAddress(long vertexNum, struct Site* address)
+{
+	if(vertices == 0)
+	{
+		vertices = (struct Site **) myalloc(4000*sizeof( *vertices));
+		sizeOfVertices = 4000;
+		for(int i = sizeOfVertices - 4000; i < sizeOfVertices; i++)
+		{
+			vertices[i] = 0;
+		}
+	}
+	//if the site address being entered is past the end of the array, then grow the array
+	while(vertexNum > sizeOfVertices - 1)
+	{
+		vertices = (Site**)realloc(vertices,(sizeOfVertices+4000)*sizeof(Site*));
+		sizeOfVertices += 4000;
+
+		for(int i = sizeOfVertices - 4000; i < sizeOfVertices; i++)
+		{
+			vertices[i] = 0;
+		}
+	}
+	vertices[vertexNum] = address;
+}
+
+
+
+void VoronoiDiagramGenerator::insertVertexLink(long vertexNum, long vertexLinkedTo)
+{
+	if(vertexLinks == 0)
+	{
+		vertexLinks = (struct Point3*) myalloc(4000*sizeof(*vertexLinks));
+		sizeOfVertexLinks = 4000;
+		for(int i = 0; i < sizeOfVertexLinks; i++)
+		{
+			vertexLinks[i].x = vertexLinks[i].y = vertexLinks[i].z = -1; //initialise all elements in the array to -1
+			vertexLinks[i].count = 0;
+		}
+	}
+	//if the site address being entered is past the end of the array, then grow the array
+	while(vertexNum > sizeOfVertexLinks - 1 || vertexLinkedTo > sizeOfVertexLinks - 1)
+	{
+		//LOG<<"Resizing the array to "<<sizeOfVertexLinks + 4000<<endl;
+		//LOG<<endl;
+		vertexLinks = (Point3*)realloc(vertexLinks,(sizeOfVertexLinks+4000)*sizeof(Point3));
+		//if(vertexLinks == 0)LOG<<"Error - realloc failed, vertexLinks == 0"<<endl;
+		sizeOfVertexLinks += 4000;
+
+		for(int i = sizeOfVertexLinks - 4000; i < sizeOfVertexLinks; i++)
+		{
+			vertexLinks[i].x = vertexLinks[i].y = vertexLinks[i].z = -1; //initialise all elements in the array to -1
+			vertexLinks[i].count = 0;
+		}
+	}
+
+	if(vertexLinks[vertexNum].x == -1)
+	{
+		vertexLinks[vertexNum].x = (float)vertexLinkedTo;
+		vertexLinks[vertexNum].count = 1;
+	}
+	else if(vertexLinks[vertexNum].y == -1)
+	{
+		vertexLinks[vertexNum].y = (float)vertexLinkedTo;
+		vertexLinks[vertexNum].count = 2;
+	}
+	else if(vertexLinks[vertexNum].z == -1)
+	{
+		vertexLinks[vertexNum].z = (float)vertexLinkedTo;
+		vertexLinks[vertexNum].count = 3;
+	}
+
+	if(vertexLinks[vertexLinkedTo].x == -1)
+	{
+		vertexLinks[vertexLinkedTo].x = (float)vertexNum;
+		vertexLinks[vertexLinkedTo].count = 1;
+	}
+	else if(vertexLinks[vertexLinkedTo].y == -1)
+	{
+		vertexLinks[vertexLinkedTo].y = (float)vertexNum;
+		vertexLinks[vertexLinkedTo].count = 2;
+	}
+	else if(vertexLinks[vertexLinkedTo].z == -1)
+	{
+		vertexLinks[vertexLinkedTo].z = (float)vertexNum;
+		vertexLinks[vertexLinkedTo].count = 3;
+	}	
+
+//	LOG<<"insertVertexLink exit"<<endl;
+}
+
+
+void VoronoiDiagramGenerator::generateVertexLinks()
+{
+	long i = 0, j = 0;	
+	if(finalVertexLinks != 0)
+	{
+		free(finalVertexLinks);
+		finalVertexLinks = 0;
+	}
+
+	if(vertices == 0)
+	{
+		return;
+	}
+
+	sizeOfFinalVertexLinks = (sizeOfVertices>sizeOfVertexLinks) ? sizeOfVertices : sizeOfVertexLinks;
+	finalVertexLinks = (struct VertexLink*)myalloc(sizeOfFinalVertexLinks* sizeof(VertexLink));
+
+	if(finalVertexLinks == 0)
+		return;
+
+	for(i = 0; i< sizeOfFinalVertexLinks; i++)
+	{
+		finalVertexLinks[i].count = 0;		
+	}
+	
+	long *count1vertices = (long*)myalloc(sizeOfFinalVertexLinks * sizeof(long));
+	long *count3vertices = (long*)myalloc(sizeOfFinalVertexLinks * sizeof(long));
+
+	//if we couldn't get the memory we need, return
+	if(count1vertices == 0 || count3vertices == 0)
+	{
+		if(count3vertices != 0)
+		{
+			delete[] count3vertices;
+		}
+		if(count1vertices != 0)
+		{
+			delete[] count1vertices;
+		}
+		return;
+	}
+
+	//initialise the two arrays
+	for(i = 0; i< sizeOfFinalVertexLinks; i++)
+	{
+		count1vertices[i] = 0;
+		count3vertices[i] = 0;
+	}
+
+	long count1counter = 0, count3counter = 0;
+	long count3links[3] = {-1};
+	
+	for(i = 0; i< sizeOfVertices; i++)
+	{		
+	//	LOG<<"copying "<<i<<" coords,vertices[i]="<<vertices[i]<<endl;
+		if(vertices[i] == 0)
+			break;
+		
+		finalVertexLinks[i].coord = vertices[i]->coord;
+	}
+	
+	for(i = 0; i< sizeOfVertexLinks; i++)
+	{
+		switch(vertexLinks[i].count)
+		{
+		case 1:count1vertices[count1counter] = i;
+			count1counter++;
+			break;
+		case 3:count3vertices[count3counter] = i;
+			count3counter++;
+			break;		
+		}		
+	}
+
+	//first, we go from all leaf nodes, those with just one edge, to either the next leaf or the
+	//next node with 3 edges
+	long currentVertex = 0, prevVertex = 0;
+	
+	for(i = 0; i< count1counter; i++)
+	{
+		if(vertexLinks[count1vertices[i]].count != 1)//if we've already been here, ignore this vertex
+			continue;
+	//	LOG<<i;
+		
+		currentVertex = (long)vertexLinks[count1vertices[i]].x;//use the x variable, since it should be the only one set
+		prevVertex = count1vertices[i];
+		vertexLinks[count1vertices[i]].count --;	//don't revisit this site
+
+		while(currentVertex != -1 && currentVertex <sizeOfVertexLinks && 
+			vertexLinks[currentVertex].count != 1 && vertexLinks[currentVertex].count != 3 )
+		{
+			if(vertexLinks[currentVertex].count == 2)
+			{
+				if(vertexLinks[currentVertex].x == prevVertex )
+				{
+					vertexLinks[currentVertex].x = vertexLinks[currentVertex].y;
+					vertexLinks[currentVertex].y = -1;
+					vertexLinks[currentVertex].count--;
+				}
+				else if(vertexLinks[currentVertex].y == prevVertex)
+				{
+					vertexLinks[currentVertex].y = -1;
+					vertexLinks[currentVertex].count--;
+				}
+				prevVertex = currentVertex;
+				currentVertex = (long)vertexLinks[currentVertex].x;
+
+			}
+			else
+			{
+				break;//this is an error, and shouldn't happen
+			}
+		}	
+
+		if(currentVertex == -1 || currentVertex >= sizeOfVertexLinks)
+			continue; //this is an error
+
+		finalVertexLinks[count1vertices[i]].v[finalVertexLinks[count1vertices[i]].count] = vertices[currentVertex]->coord;
+				
+		finalVertexLinks[count1vertices[i]].count++;
+		
+
+		if(vertexLinks[currentVertex].count == 1)
+		{
+			vertexLinks[currentVertex].count = 0;
+			vertexLinks[currentVertex].x = -1;
+		}
+		else if(vertexLinks[currentVertex].count == 3)
+		{
+			if(vertexLinks[currentVertex].x == prevVertex )
+			{
+				vertexLinks[currentVertex].x = -1;
+			}
+			else if(vertexLinks[currentVertex].y == prevVertex)
+			{
+				vertexLinks[currentVertex].y = -1;
+			}
+			else if(vertexLinks[currentVertex].z == prevVertex)
+			{
+				vertexLinks[currentVertex].z = -1;
+			}			
+		}		
+	}
+
+	//at this stage, all the edges that end in leaf nodes are processed, now just do the edges between vertices with 3 connections
+	for(i = 0; i< count3counter; i++)
+	{
+	//	LOG<<i<<", count3vertices["<<i<<"] = "<<count3vertices[i];
+
+		//get the (possible) three vertices that the vertex at pos count3vertices[i] of vertexLinks is linked to
+		count3links[0] = (long)vertexLinks[count3vertices[i]].x;
+		count3links[1] = (long)vertexLinks[count3vertices[i]].y;
+		count3links[2] = (long)vertexLinks[count3vertices[i]].z;
+	//	LOG<<"after count3links, finalVertexLinks[count3vertices[i]].count = "<<finalVertexLinks[count3vertices[i]].count<<endl;
+
+		/*LOGCODE*/		if(finalVertexLinks[count3vertices[i]].count > 2 || finalVertexLinks[count3vertices[i]].count < 0)
+		/*LOGCODE*/		{
+		/*LOGCODE*/			return;
+		/*LOGCODE*/		}
+
+		//mark one of the links in this finalVertexLink
+		//finalVertexLinks[count3vertices[i]].v[finalVertexLinks[count3vertices[i]].count] = 
+		//														vertices[currentVertex]->coord;
+	//	LOG<<"after finalVertexLinks[count3vertices[i]]"<<endl;
+
+		for(j = 0; j< 3; j++)//process each of the vertices that the current one is linked to
+		{
+			if(count3links[j] == -1) //all links to leaf nodes are marked with -1
+				continue;
+
+			currentVertex = count3links[j];
+			prevVertex  = count3vertices[i];
+			while(currentVertex >=0 && currentVertex < sizeOfVertexLinks && vertexLinks[currentVertex].count != 3)
+			{
+				if(vertexLinks[currentVertex].count == 2)
+				{
+					if(vertexLinks[currentVertex].x == prevVertex )
+					{
+						vertexLinks[currentVertex].x = -1;
+						prevVertex = currentVertex;
+						currentVertex = (long)vertexLinks[currentVertex].y;
+					}
+					else if(vertexLinks[currentVertex].y == prevVertex)
+					{
+						vertexLinks[currentVertex].y = -1;
+						prevVertex = currentVertex;
+						currentVertex = (long)vertexLinks[currentVertex].x;
+					}				
+					else
+					{
+						break;//this is an error, prevents infinite recursion in case I make a mistake
+					}
+
+				}
+			}
+			if(currentVertex < 0|| currentVertex >= sizeOfVertexLinks)
+				continue; //this is an error, and shouldn't happen
+		
+			finalVertexLinks[count3vertices[i]].v[finalVertexLinks[count3vertices[i]].count] = 
+																vertices[currentVertex]->coord;
+			finalVertexLinks[count3vertices[i]].count++;
+
+			if(vertexLinks[currentVertex].count == 3)
+			{
+				if(vertexLinks[currentVertex].x == prevVertex )
+				{
+					vertexLinks[currentVertex].x = -1;
+				}
+				else if(vertexLinks[currentVertex].y == prevVertex)
+				{
+					vertexLinks[currentVertex].y = -1;
+				}
+				else if(vertexLinks[currentVertex].z == prevVertex)
+				{
+					vertexLinks[currentVertex].z = -1;
+				}			
+			}	
+			else
+			{
+				continue;
+			}
+		}		
+	}
+}
+
+
+
+bool VoronoiDiagramGenerator::getNextVertexPair(float& x1, float& y1, float& x2, float& y2)
+{
+	if(finalVertexLinks == 0)
+		return false;
+
+	while(currentVertexLink < sizeOfFinalVertexLinks && finalVertexLinks[currentVertexLink].count < 1)
+		currentVertexLink++;
+
+	if(currentVertexLink >= sizeOfFinalVertexLinks || finalVertexLinks[currentVertexLink].count <1)
+		return false;
+
+	int num = finalVertexLinks[currentVertexLink].count -1;
+	finalVertexLinks[currentVertexLink].count--;
+
+	x1 = finalVertexLinks[currentVertexLink].v[num].x;
+	y1 = finalVertexLinks[currentVertexLink].v[num].y;
+	x2 = finalVertexLinks[currentVertexLink].coord.x;
+	y2 = finalVertexLinks[currentVertexLink].coord.y;
+
+	return true;
+
+
+}
+
 int scomp(const void *p1,const void *p2)
 {
-	struct Point *s1 = (Point*)p1, *s2=(Point*)p2;
+	struct PointVDG *s1 = (PointVDG*)p1, *s2=(PointVDG*)p2;
 	if(s1 -> y < s2 -> y) return(-1);
 	if(s1 -> y > s2 -> y) return(1);
 	if(s1 -> x < s2 -> x) return(-1);

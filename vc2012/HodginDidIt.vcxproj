@@ -197,12 +197,14 @@
     <ClCompile Include="..\src\HdiVeil.cpp" />
     <ClCompile Include="..\src\HodginDidItApp.cpp" />
     <ClCompile Include="..\src\pointcloudUtils.cpp" />
+    <ClCompile Include="..\src\VoronoiDiagramGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\HdiVeil.h" />
     <ClInclude Include="..\include\HodginDidItApp.h" />
     <ClInclude Include="..\include\pointcloudUtils.h" />
     <ClInclude Include="..\include\Resources.h" />
+    <ClInclude Include="..\include\VoronoiDiagramGenerator.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
