@@ -36,7 +36,11 @@ Vec3f PointCloud::phDepthToWorld(const Matrix44f pModelView, const Matrix44f pPr
 
 	return retVal;
 }
-
+/*
+factors.x = tanf(fov.x/2)*2
+factors.y = tanf(fox.y/2)*2
+pImageRes = depth.x,depth.y;
+*/
 Vec3f PointCloud::niDepthToWorld(const Vec3f pPt, const Vec2f pFactors, const Vec2f pImageRes)
 {
 	Vec2f cNorm = Vec2f(pPt.x/pImageRes.x-0.5f,0.5f-pPt.y/pImageRes.y);
