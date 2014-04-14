@@ -131,6 +131,7 @@ void HodginDidItApp::setupIO()
 
 void HodginDidItApp::setupGraphics()
 {
+	mDepthBuffer = new uint16_t[mDepthW*mDepthH];
 	mSurfDepth = Surface8u(mDepthW, mDepthH, true, SurfaceChannelOrder::RGBA);
 	mBlendAmt = S_BLEND_MAX;
 
@@ -139,6 +140,9 @@ void HodginDidItApp::setupGraphics()
 	mQuestion = "Are You There?";
 	mCursor = '_';
 	mScreenText.clear();
+
+	mTexBg = gl::Texture(loadImage(loadAsset("bg_test.png")));
+	mPixelSize = Vec2f::one()/Vec2f(160,120);
 }
 
 //global
@@ -168,11 +172,13 @@ void HodginDidItApp::updateCamera()
 	}
 	else if(mStage==5||mStage==6)	//BW_2_RGB
 	{
-		//PXCImage *cImgDepth = mPXC.QueryImage(PXCImage::IMAGE_TYPE_DEPTH);
-	}
-
-	else if(mStage==6)
-	{
+		PXCImage *cImgDepth = mPXC.QueryImage(PXCImage::IMAGE_TYPE_DEPTH);
+		PXCImage::ImageData cDataDepth;
+		if(cImgDepth->AcquireAccess(PXCImage::ACCESS_READ, &cDataDepth)>=PXC_STATUS_NO_ERROR)
+		{
+			memcpy(mDepthBuffer, cDataDepth.planes[0], (size_t)(mDepthW*mDepthH*sizeof(pxcU16)));
+			cImgDepth->ReleaseAccess(&cDataDepth);
+		}
 	}
 }
 
@@ -180,7 +186,7 @@ void HodginDidItApp::setupShaders()
 {
 	try
 	{
-		mShaderDisplace = gl::GlslProg(loadAsset("vert_passthru.glsl"), loadAsset("frag_displace.glsl"));
+		mShaderDisplace = gl::GlslProg(loadAsset("shaders/vert_passthru.glsl"), loadAsset("shaders/frag_displace.glsl"));
 	}
 	catch(gl::GlslProgCompileExc e)
 	{
@@ -188,7 +194,7 @@ void HodginDidItApp::setupShaders()
 	}
 	try
 	{
-		mShaderRipple = gl::GlslProg(loadAsset("vert_passthru.glsl"), loadAsset("frag_ripple.glsl"));
+		mShaderRipple = gl::GlslProg(loadAsset("shaders/vert_passthru.glsl"), loadAsset("shaders/frag_ripple.glsl"));
 	}
 	catch(gl::GlslProgCompileExc e)
 	{
@@ -331,11 +337,121 @@ void HodginDidItApp::drawBlend()
 //Stage 6
 void HodginDidItApp::updateVeil()
 {
+	processDepth();
+	updateFboPoint();
+	updateFboWater();
 }
 
 void HodginDidItApp::drawVeil()
 {
+	gl::clear(Color::black());
+
+	mFboWater[mFboIndex].bindTexture(0,0);
+	gl::enable(GL_TEXTURE_2D);
+	mFboPoints.bindTexture(1);
+	mShaderDisplace.bind();
+	mShaderDisplace.uniform("buffer",0);
+	mShaderDisplace.uniform("pixel",mPixelSize);
+	mShaderDisplace.uniform("tex",1);
+	gl::drawSolidRect(getWindowBounds());
+	mFboPoints.unbindTexture();
+	gl::disable(GL_TEXTURE_2D);
+	mShaderDisplace.unbind();
 }
+
+void HodginDidItApp::processDepth()
+{
+	mPoints.clear();
+	Surface::Iter sit = mSurfDepth.getIter(Area(0,0,mDepthW,mDepthH));
+	while(sit.line())
+	{
+		while(sit.pixel())
+		{
+			float cDepth = (float)mDepthBuffer[sit.y()*mDepthW+sit.x()];
+			sit.r() = 0;
+			sit.g() = 0;
+			sit.b() = 0;
+			sit.a() = 0;
+			if(cDepth<32000)
+			{
+				float cScaled = cDepth/1000.0f;
+				if(cDepth<300)
+				{
+					uint8_t v = (uint8_t)lmap<float>(cDepth,0,300,0,255);
+					sit.r() = v;
+					sit.a() = v;
+				}
+				if(sit.x()%2==0&&sit.y()%2==0)
+					mPoints.push_back(niDepthToWorld(Vec3f(sit.x(),sit.y(),1.0f*cScaled)));
+
+			}
+		}
+	}
+}
+
+void HodginDidItApp::updateFboPoint()
+{
+	Area cVP = gl::getViewport();
+	gl::setViewport(mFboPoints.getBounds());
+
+	mFboPoints.bindFramebuffer();
+	gl::disableDepthRead();
+	gl::setMatricesWindow(getWindowSize());
+	gl::draw(mTexBg, Vec2f::zero());
+
+	gl::pushMatrices();
+	gl::setMatrices(mCamera);
+	gl::enableAdditiveBlending();
+	for(auto vit=mPoints.begin();vit!=mPoints.end();++vit)
+	{
+		Vec3f cP = *vit;
+		gl::color(ColorA(1-cP.z,1-cP.z,1,cP.z*0.2f));
+		gl::drawCube(cP, Vec3f(0.008,0.008,0.008));
+	}
+	gl::disableAlphaBlending();
+	gl::popMatrices();
+	mFboPoints.unbindFramebuffer();
+
+	gl::setViewport(cVP);
+}
+
+void HodginDidItApp::updateFboWater()
+{
+	gl::enable(GL_TEXTURE_2D);
+	gl::color(Colorf::white());
+
+	size_t cPong = (mFboIndex +1)%2;
+	mFboWater[cPong].bindFramebuffer();	
+
+	gl::setViewport(mFboWater[mFboIndex].getBounds());
+	gl::setMatricesWindow(mFboWater[mFboIndex].getSize(), false);
+	gl::clear();
+	mFboWater[mFboIndex].bindTexture(); 
+
+	mShaderRipple.bind();
+	mShaderRipple.uniform("buffer",0);
+	mShaderRipple.uniform("pixel",mPixelSize);
+	gl::drawSolidRect(Rectf(0,0,getWindowWidth(),getWindowHeight()));
+	mShaderRipple.unbind();
+	mFboWater[mFboIndex].unbindTexture();
+	gl::disable(GL_TEXTURE_2D);
+
+	gl::enableAlphaBlending();
+	gl::draw(gl::Texture(mSurfDepth),Rectf(0,0,getWindowWidth(),getWindowHeight()));
+	gl::disableAlphaBlending();
+
+	mFboWater[cPong].unbindFramebuffer();
+	mFboIndex = cPong;
+}
+
+Vec3f HodginDidItApp::niDepthToWorld(const Vec3f pPoint)
+{
+	Vec2f cNorm = Vec2f(pPoint.x/mDepthW-0.5f,0.5f-pPoint.y/mDepthH);
+	Vec2f cWorld = Vec2f(cNorm.x*pPoint.z*mNIFactors.x, cNorm.y*pPoint.z*mNIFactors.y);
+
+	return Vec3f(cWorld.x, cWorld.y, pPoint.z);
+}
+
 
 CINDER_APP_NATIVE( HodginDidItApp, RendererGl )
 

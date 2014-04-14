@@ -7,6 +7,7 @@
 #include "cinder/gl/GlslProg.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/gl/TextureFont.h"
+#include "cinder/ImageIo.h"
 #include "util_pipeline.h"
 
 using namespace ci;
@@ -40,6 +41,9 @@ private:
 	void drawBlend();
 
 	//Stage 6 - Reach In
+	void processDepth();
+	void updateFboPoint();
+	void updateFboWater();
 	void updateVeil();
 	void drawVeil();
 	Vec3f niDepthToWorld(const Vec3f pPoint);
@@ -67,16 +71,15 @@ private:
 
 	//Stage 6
 	int mFboIndex;
+	uint16_t *mDepthBuffer;
 	Vec2f mFOV, mNIFactors, mPixelSize;
 	vector<Vec3f> mPoints;
 	CameraPersp mCamera;
-	Matrix44f mMatrixMV;
-	Matrix44f mMatrixProj;
-	Area mAreaView;
 	Surface8u mSurfDepth;
 	gl::Fbo mFboPoints;
 	gl::Fbo mFboWater[2];
 	gl::GlslProg mShaderBlur, mShaderDisplace, mShaderRipple;
+	gl::Texture mTexBg;
 };
 
 #endif __HODGINDIDIT_H__
