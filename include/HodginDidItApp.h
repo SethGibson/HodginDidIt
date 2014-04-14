@@ -3,10 +3,10 @@
 #include "cinder/app/AppNative.h"
 #include "cinder/Camera.h"
 #include "cinder/gl/gl.h"
+#include "cinder/gl/Fbo.h"
 #include "cinder/gl/GlslProg.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/gl/TextureFont.h"
-#include "pointcloudUtils.h"
 #include "util_pipeline.h"
 
 using namespace ci;
@@ -24,6 +24,8 @@ private:
 	void setupCiCamera();
 	void setupIO();
 	void setupGraphics();
+	void setupShaders();
+	void setupFbos();
 
 	//update and draw methods
 	//Global
@@ -33,13 +35,14 @@ private:
 	void updateStrings(); 
 	void drawStrings();
 
-	//Stage 3 - I Can See You
+	//Stage 3,4,5 - I Can See You
 	void updateBlend();
 	void drawBlend();
 
-	//Stage 4 - Reach In
+	//Stage 6 - Reach In
 	void updateVeil();
 	void drawVeil();
+	Vec3f niDepthToWorld(const Vec3f pPoint);
 
 	//Global
 	int mStage;
@@ -58,18 +61,22 @@ private:
 	//Stage 3,4,5
 	int mBlendCounter;
 	float mBlendAmt;
-	Surface8u mSurfDepth;
-	Surface8u mSurfRgb;
 	Channel mChanBW;
 	gl::Texture mTexRgb;
 	gl::Texture mTexSeg;
-	gl::GlslProg mShaderBlur;
 
 	//Stage 6
+	int mFboIndex;
+	Vec2f mFOV, mNIFactors, mPixelSize;
+	vector<Vec3f> mPoints;
 	CameraPersp mCamera;
 	Matrix44f mMatrixMV;
 	Matrix44f mMatrixProj;
 	Area mAreaView;
+	Surface8u mSurfDepth;
+	gl::Fbo mFboPoints;
+	gl::Fbo mFboWater[2];
+	gl::GlslProg mShaderBlur, mShaderDisplace, mShaderRipple;
 };
 
 #endif __HODGINDIDIT_H__

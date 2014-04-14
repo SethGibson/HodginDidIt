@@ -5,7 +5,7 @@ const int S_ASK_START = 210;
 const int S_BL_2_SEG = 330;
 const int S_SEG_2_BW = 420;
 const int S_BW_2_RGB = 510;
-const int S_WORLD_START = 630;
+const int S_VEIL_START = 630;
 const int S_FADE_TIME = 90;
 const float S_BLEND_MAX = 1.0f;
 
@@ -17,9 +17,11 @@ void HodginDidItApp::prepareSettings(Settings *pSettings)
 
 void HodginDidItApp::setup()
 {
-	setupCiCamera();
 	setupIO();
+	setupCiCamera();
 	setupGraphics();
+	setupShaders();
+	setupFbos();
 }
 
 void HodginDidItApp::update()
@@ -35,9 +37,9 @@ void HodginDidItApp::update()
 		mStage = 3;
 	else if(cTime>=S_SEG_2_BW&&cTime<S_BW_2_RGB)
 		mStage = 4;
-	else if(cTime>=S_BW_2_RGB&&cTime<S_WORLD_START)
+	else if(cTime>=S_BW_2_RGB&&cTime<S_VEIL_START)
 		mStage = 5;
-	else if(cTime>=S_WORLD_START)
+	else if(cTime>=S_VEIL_START)
 		mStage = 6;
 		
 	if(mStage>=3)
@@ -101,13 +103,18 @@ void HodginDidItApp::draw()
 
 void HodginDidItApp::setupCiCamera()
 {
-	mCamera = CameraPersp(getWindowWidth(), getWindowHeight(), 74.0f);
-	mCamera.setPerspective(58.0f, 4.0f/3.0f, 0.1f,1000.0f);
-	mCamera.setEyePoint(Vec3f::zero());
-	mCamera.lookAt(Vec3f(0,0,100));
-	mMatrixMV = mCamera.getModelViewMatrix();
-	mMatrixProj = mCamera.getProjectionMatrix();
-	mAreaView = gl::getViewport();
+	PXCPointF32 cFOV;
+	mPXC.QueryCapture()->QueryDevice()->QueryPropertyAsPoint(PXCCapture::Device::PROPERTY_DEPTH_FOCAL_LENGTH,&cFOV);
+	mFOV.x = math<float>::atan(mDepthW/(cFOV.x*2))*2;
+	mFOV.y = math<float>::atan(mDepthH/(cFOV.y*2))*2;
+	mNIFactors.x = math<float>::tan(mFOV.x/2.0f)*2.0f;
+	mNIFactors.y = math<float>::tan(mFOV.y/2.0f)*2.0f;
+	
+	float cVFov = (float)toDegrees(mFOV.y);
+	float cAspect = getWindowAspectRatio();
+	
+	mCamera.setPerspective(cVFov,cAspect,0.1f,100.0f);
+	mCamera.lookAt(Vec3f(0,0,0), Vec3f::zAxis(), Vec3f::yAxis());
 }
 
 void HodginDidItApp::setupIO()
@@ -124,8 +131,7 @@ void HodginDidItApp::setupIO()
 
 void HodginDidItApp::setupGraphics()
 {
-	mSurfRgb = Surface8u(mRgbW, mRgbH, false, SurfaceChannelOrder::BGR);
-	mSurfDepth = Surface8u(mDepthW, mDepthH, false, SurfaceChannelOrder::RGB);
+	mSurfDepth = Surface8u(mDepthW, mDepthH, true, SurfaceChannelOrder::RGBA);
 	mBlendAmt = S_BLEND_MAX;
 
 	mFont = gl::TextureFont::create(Font(loadAsset("IntelClear_RG.ttf"), 48));
@@ -167,6 +173,51 @@ void HodginDidItApp::updateCamera()
 
 	else if(mStage==6)
 	{
+	}
+}
+
+void HodginDidItApp::setupShaders()
+{
+	try
+	{
+		mShaderDisplace = gl::GlslProg(loadAsset("vert_passthru.glsl"), loadAsset("frag_displace.glsl"));
+	}
+	catch(gl::GlslProgCompileExc e)
+	{
+		console() << e.what() << endl;
+	}
+	try
+	{
+		mShaderRipple = gl::GlslProg(loadAsset("vert_passthru.glsl"), loadAsset("frag_ripple.glsl"));
+	}
+	catch(gl::GlslProgCompileExc e)
+	{
+		console() << e.what() << endl;
+	}
+}
+
+void HodginDidItApp::setupFbos()
+{
+	gl::Fbo::Format cFormat;
+	cFormat.setSamples(4);
+	cFormat.setCoverageSamples(8);
+	cFormat.enableColorBuffer();
+	cFormat.enableDepthBuffer();
+	mFboPoints = gl::Fbo(getWindowWidth(), getWindowHeight(),cFormat);
+	//mFboPoints.getTexture(0).setFlipped(true);
+
+	cFormat.enableDepthBuffer(false);
+	cFormat.setColorInternalFormat(GL_RGBA32F_ARB);
+
+	mFboIndex = 0;
+	for(size_t id=0;id<2;++id)
+	{
+		mFboWater[id] = gl::Fbo(getWindowWidth(), getWindowHeight(), cFormat);
+		mFboWater[id].bindFramebuffer();
+		gl::clear();
+		mFboWater[id].unbindFramebuffer();
+		mFboWater[id].getTexture(0).setWrap(GL_REPEAT,GL_REPEAT);
+		mFboWater[id].getTexture(0).setFlipped(true);
 	}
 }
 
