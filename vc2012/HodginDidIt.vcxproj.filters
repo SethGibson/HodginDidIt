@@ -27,7 +27,10 @@
     <ClInclude Include="..\include\Resources.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClCompile Include="..\src\FeedBlender.cpp">
+    <ClCompile Include="..\src\HDIDrawString.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\HDIFeedBlender.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -38,7 +41,10 @@
     <ClInclude Include="..\include\HodginDidItApp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\FeedBlender.h">
+    <ClInclude Include="..\include\HDIDrawString.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\HDIFeedBlender.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

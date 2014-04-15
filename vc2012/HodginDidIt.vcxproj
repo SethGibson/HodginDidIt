@@ -194,11 +194,13 @@
     <ResourceCompile Include="Resources.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\FeedBlender.cpp" />
+    <ClCompile Include="..\src\HDIDrawString.cpp" />
+    <ClCompile Include="..\src\HDIFeedBlender.cpp" />
     <ClCompile Include="..\src\HodginDidItApp.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\include\FeedBlender.h" />
+    <ClInclude Include="..\include\HDIDrawString.h" />
+    <ClInclude Include="..\include\HDIFeedBlender.h" />
     <ClInclude Include="..\include\HodginDidItApp.h" />
     <ClInclude Include="..\include\Resources.h" />
   </ItemGroup>
