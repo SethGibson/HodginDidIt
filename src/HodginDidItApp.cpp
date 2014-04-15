@@ -301,6 +301,9 @@ void HodginDidItApp::updateBlend()
 
 void HodginDidItApp::drawBlend()
 {
+	gl::pushModelView();
+	gl::translate(getWindowWidth(),0);
+	gl::scale(-1,1,1);
 	gl::clear(Color::black());
 	gl::enableAlphaBlending();
 	switch(mStage)
@@ -332,6 +335,7 @@ void HodginDidItApp::drawBlend()
 		}
 	}
 	gl::disableAlphaBlending();
+	gl::popModelView();
 }
 
 //Stage 6

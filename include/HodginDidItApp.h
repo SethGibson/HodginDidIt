@@ -9,6 +9,7 @@
 #include "cinder/gl/TextureFont.h"
 #include "cinder/ImageIo.h"
 #include "util_pipeline.h"
+#include "HDIFeedBlender.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -68,6 +69,7 @@ private:
 	Channel mChanBW;
 	gl::Texture mTexRgb;
 	gl::Texture mTexSeg;
+	HDIFeedBlender mBlendSeg, mBlendSeg2Bw, mBlendBw2Rgb;
 
 	//Stage 6
 	int mFboIndex;
